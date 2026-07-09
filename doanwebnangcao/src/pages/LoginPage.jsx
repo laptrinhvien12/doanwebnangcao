@@ -11,9 +11,8 @@ function LoginPage() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
-  // Nếu trong ShopContext bạn có hàm để cập nhật global state (ví dụ setUser), bạn có thể lấy ra ở đây
-  // const { setUser } = useShop(); 
-
+  // Lấy hàm setUser từ Context để cập nhật trạng thái đăng nhập toàn ứng dụng
+  const { setUser } = useShop();
   // Đổi thành async function để làm việc với API
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,9 +28,8 @@ function LoginPage() {
       // 2. Lưu chuỗi Token và thông tin user vào localStorage để duy trì đăng nhập
       localStorage.setItem("userInfo", JSON.stringify(data));
 
-      // (Tùy chọn) Cập nhật state global nếu bạn đang dùng Context
-      // if (setUser) setUser(data);
-
+      // Cập nhật ngay lập tức state `user` trong Context mà không cần tải lại trang
+      setUser(data);
       // 3. Phân quyền điều hướng: Admin vào trang quản trị, User về trang chủ
       if (data.role === "admin") {
         navigate("/admin");

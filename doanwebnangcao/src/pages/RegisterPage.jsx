@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 import axiosClient from "../api/axiosClient";
+import { useShop } from "../context/ShopContext"; // Import useShop để lấy setUser
 
 function RegisterPage() {
   const [name, setName] = useState("");
@@ -12,6 +13,8 @@ function RegisterPage() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  // Lấy hàm setUser từ Context để cập nhật trạng thái đăng nhập
+  const { setUser } = useShop();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,6 +37,9 @@ function RegisterPage() {
       // 2. Vì Backend của chúng ta tự động trả về token ngay khi đăng ký thành công,
       // nên ta lưu luôn vào localStorage để đăng nhập thẳng cho người dùng.
       localStorage.setItem("userInfo", JSON.stringify(data));
+
+      // Cập nhật ngay lập tức state `user` trong Context
+      setUser(data);
 
       // 3. Điều hướng người dùng về trang chủ để mua sắm luôn
       navigate("/");

@@ -43,6 +43,47 @@ const getMyOrders = async (req, res) => {
         res.status(500).json({ message: 'Lỗi tải danh sách đơn hàng' });
     }
 };
+
+// @desc    Lấy tất cả đơn hàng (cho Admin)
+// @route   GET /api/orders
+// @access  Private/Admin
+const getOrders = async (req, res) => {
+    try {
+        // Dùng populate để lấy cả 'name' của user từ bảng User
+        const orders = await Order.find({}).populate('user', 'id name').sort({ createdAt: -1 });
+        res.status(200).json(orders);
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi tải danh sách đơn hàng' });
+    }
+};
+
+// @desc    Cập nhật trạng thái đơn hàng (cho Admin)
+// @route   PUT /api/orders/:id/status
+// @access  Private/Admin
+const updateOrderStatus = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+
+        if (order) {
+            // Lấy status mới từ body của request
+            order.status = req.body.status || order.status;
+
+            // Nếu status là "Hoàn thành", có thể set isDelivered = true
+            if (req.body.status === 'Hoàn thành') {
+                order.isDelivered = true;
+                order.deliveredAt = Date.now();
+            }
+
+            const updatedOrder = await order.save();
+            res.status(200).json(updatedOrder);
+        } else {
+            res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi cập nhật trạng thái đơn hàng', error: error.message });
+    }
+};
+
 const updateOrderToPaid = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -61,4 +102,4 @@ const updateOrderToPaid = async (req, res) => {
     }
 };
 
-module.exports = { addOrderItems, getMyOrders, updateOrderToPaid };
+module.exports = { addOrderItems, getMyOrders, getOrders, updateOrderToPaid, updateOrderStatus };

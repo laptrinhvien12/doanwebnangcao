@@ -1,5 +1,15 @@
 const mongoose = require('mongoose');
 
+// Schema for one review
+const reviewSchema = mongoose.Schema({
+    user: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
+    name: { type: String, required: true }, // User's name
+    rating: { type: Number, required: true }, // Rating from 1 to 5
+    comment: { type: String, required: true },
+}, {
+    timestamps: true
+});
+
 // 1. Định nghĩa Schema cho MỘT biến thể
 const variantSchema = mongoose.Schema({
     sku: { type: String, required: true }, // Mã quản lý kho (VD: IP15PM-256-TITAN)
@@ -29,7 +39,20 @@ const productSchema = mongoose.Schema({
     basePrice: { type: Number, required: true }, 
 
     // Nhúng mảng các biến thể vào đây
-    variants: [variantSchema] 
+    variants: [variantSchema],
+
+    // Thêm các trường cho hệ thống đánh giá
+    reviews: [reviewSchema],
+    rating: {
+        type: Number,
+        required: true,
+        default: 0
+    },
+    numReviews: {
+        type: Number,
+        required: true,
+        default: 0
+    }
 }, {
     timestamps: true
 });

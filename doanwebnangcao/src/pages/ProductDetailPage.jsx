@@ -2,36 +2,67 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 import { useShop } from "../context/ShopContext";
+import StarRating from "../components/StarRating"; // Component để hiển thị sao
+import ProductCard from "../components/ProductCard"; // Thêm component Card sản phẩm
 import axiosClient from "../api/axiosClient"; // Đảm bảo đường dẫn chính xác tới axiosClient của bạn
 
 function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useShop();
+  const { addToCart, user } = useShop(); // Lấy thông tin user
 
   const [product, setProduct] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]); // State mới cho sản phẩm liên quan
   const [loading, setLoading] = useState(true);
 
+  // State cho form đánh giá
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
+
   useEffect(() => {
-    const fetchProductDetail = async () => {
+    const fetchProductData = async () => {
+      setLoading(true);
+      setRelatedProducts([]); // Xóa sản phẩm liên quan cũ
+      window.scrollTo(0, 0); // Cuộn lên đầu trang mỗi khi xem sản phẩm mới
+
+      // Reset form review
+      setRating(0);
+      setComment("");
+      setReviewError("");
+      setReviewSuccess("");
       try {
-        const { data } = await axiosClient.get(`/products/${id}`);
-        setProduct(data);
+        // 1. Tải thông tin sản phẩm chính
+        const { data: productData } = await axiosClient.get(`/products/${id}`);
+        setProduct(productData);
         
         // Mặc định chọn phiên bản biến thể đầu tiên khi vừa tải trang
-        if (data.variants && data.variants.length > 0) {
-          setSelectedVariant(data.variants[0]);
+        if (productData.variants && productData.variants.length > 0) {
+          setSelectedVariant(productData.variants[0]);
+        } else {
+          setSelectedVariant(null);
         }
-        setLoading(false);
+
+        // 2. Tải các sản phẩm liên quan dựa trên danh mục
+        if (productData.category) {
+          const { data: categoryProducts } = await axiosClient.get(`/products?category=${productData.category}`);
+          // Lọc bỏ sản phẩm hiện tại và chỉ lấy 4 sản phẩm đầu tiên
+          const filteredProducts = categoryProducts
+            .filter(p => p._id !== productData._id)
+            .slice(0, 4);
+          setRelatedProducts(filteredProducts);
+        }
+
       } catch (error) {
         console.error("Lỗi khi tải chi tiết sản phẩm:", error);
+      } finally {
         setLoading(false);
       }
     };
-
-    fetchProductDetail();
-  }, [id]);
+    fetchProductData();
+  }, [id]); // Chạy lại khi ID sản phẩm thay đổi
 
   if (loading) {
     return (
@@ -80,6 +111,32 @@ function ProductDetailPage() {
     navigate("/gio-hang");
   };
 
+  // Xử lý gửi đánh giá
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    setReviewError("");
+    setReviewSuccess("");
+
+    if (rating === 0 || comment.trim() === "") {
+      setReviewError("Vui lòng cho điểm và viết bình luận.");
+      return;
+    }
+
+    try {
+      await axiosClient.post(`/products/${id}/reviews`, { rating, comment });
+      setReviewSuccess("Cảm ơn bạn đã gửi đánh giá! Đánh giá của bạn sẽ được hiển thị sau khi tải lại trang.");
+      // Reset form
+      setRating(0);
+      setComment("");
+      // Tùy chọn: có thể fetch lại product để cập nhật ngay lập tức
+    } catch (error) {
+      setReviewError(error.response?.data?.message || "Gửi đánh giá thất bại.");
+    }
+  };
+
+  // Sắp xếp review mới nhất lên đầu
+  const sortedReviews = product?.reviews ? [...product.reviews].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) : [];
+
   return (
     <PageLayout title={product.name}>
       <div className="container" style={{ padding: "30px 15px", background: "#f8f9fa" }}>
@@ -87,7 +144,11 @@ function ProductDetailPage() {
         {/* TÊN SẢN PHẨM PHÍA TRÊN CÙNG */}
         <div style={{ marginBottom: "20px", borderBottom: "1px solid #e0e0e0", paddingBottom: "15px" }}>
           <h1 style={{ fontSize: "24px", fontWeight: "bold", color: "#333" }}>{product.name}</h1>
-          <span style={{ fontSize: "14px", color: "#666" }}>Thương hiệu: <strong style={{ color: "#ff6600" }}>{product.brand}</strong> | Danh mục: {product.category}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "15px", marginTop: "8px" }}>
+            <StarRating rating={product.rating} />
+            <span style={{ color: "#ff6600", fontWeight: "500" }}>{product.numReviews} đánh giá</span>
+            <span style={{ fontSize: "14px", color: "#666" }}>Thương hiệu: <strong style={{ color: "#ff6600" }}>{product.brand}</strong></span>
+          </div>
         </div>
 
         {/* KHU VỰC CHI TIẾT PHÍA TRÊN (CHIA 2 CỘT) */}
@@ -250,6 +311,89 @@ function ProductDetailPage() {
           </div>
 
         </div>
+
+        {/* KHU VỰC ĐÁNH GIÁ VÀ BÌNH LUẬN */}
+        <div style={{ background: "#fff", padding: "25px", borderRadius: "12px", border: "1px solid #e0e0e0", marginTop: "40px" }}>
+          <h3 style={{ fontSize: "18px", fontWeight: "bold", borderBottom: "2px solid #ff6600", paddingBottom: "8px", marginBottom: "25px" }}>
+            Khách hàng đánh giá
+          </h3>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "30px" }}>
+            {/* Cột trái: Form viết đánh giá */}
+            <div>
+              <h4 style={{ fontSize: "16px", marginBottom: "15px" }}>Viết đánh giá của bạn</h4>
+              {user ? (
+                <form onSubmit={handleReviewSubmit}>
+                  <div style={{ marginBottom: "15px" }}>
+                    <label style={{ fontWeight: "500", display: "block", marginBottom: "5px" }}>Cho điểm sản phẩm</label>
+                    <StarRating rating={rating} onRating={setRating} isInteractive={true} />
+                  </div>
+                  <div style={{ marginBottom: "15px" }}>
+                    <label style={{ fontWeight: "500", display: "block", marginBottom: "5px" }}>Bình luận của bạn</label>
+                    <textarea
+                      rows="4"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Sản phẩm dùng rất tốt, pin trâu, màn hình đẹp..."
+                      style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ccc" }}
+                    ></textarea>
+                  </div>
+                  {reviewError && <p style={{ color: "red", fontSize: "14px" }}>{reviewError}</p>}
+                  {reviewSuccess && <p style={{ color: "green", fontSize: "14px" }}>{reviewSuccess}</p>}
+                  <button type="submit" className="btn btn-orange">Gửi đánh giá</button>
+                </form>
+              ) : (
+                <div style={{ background: "#fff7ef", padding: "15px", borderRadius: "8px", border: "1px solid #ffd4aa" }}>
+                  Vui lòng <Link to="/login" style={{ color: "#ff6600", fontWeight: "bold" }}>đăng nhập</Link> để gửi đánh giá của bạn.
+                </div>
+              )}
+            </div>
+
+            {/* Cột phải: Danh sách các đánh giá đã có */}
+            <div style={{ maxHeight: "500px", overflowY: "auto", paddingRight: "10px" }}>
+              {sortedReviews.length === 0 ? (
+                <p>Chưa có đánh giá nào cho sản phẩm này.</p>
+              ) : (
+                sortedReviews.map((review) => (
+                  <div key={review._id} style={{ borderBottom: "1px solid #eee", paddingBottom: "15px", marginBottom: "15px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                      <div style={{
+                        width: "40px", height: "40px", borderRadius: "50%", background: "#ff6600", color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: "18px"
+                      }}>
+                        {review.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <strong style={{ display: "block" }}>{review.name}</strong>
+                        <span style={{ fontSize: "12px", color: "#888" }}>{new Date(review.createdAt).toLocaleDateString("vi-VN")}</span>
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: "8px" }}>
+                      <StarRating rating={review.rating} />
+                    </div>
+                    <p style={{ margin: 0, fontSize: "15px", color: "#333" }}>{review.comment}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SẢN PHẨM LIÊN QUAN */}
+        {relatedProducts.length > 0 && (
+          <div style={{ background: "#fff", padding: "25px", borderRadius: "12px", border: "1px solid #e0e0e0", marginTop: "40px" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "bold", borderBottom: "2px solid #ff6600", paddingBottom: "8px", marginBottom: "25px" }}>
+              Sản phẩm có thể bạn sẽ thích
+            </h3>
+            <div className="row g-4">
+              {relatedProducts.map((p) => (
+                <div key={p._id} className="col-12 col-md-6 col-lg-3">
+                  <ProductCard product={p} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </PageLayout>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import StarRating from "../components/StarRating"; // Import component sao
 import { useShop } from "../context/ShopContext";
 import axiosClient from "../api/axiosClient";
 
@@ -9,6 +10,8 @@ function AdminPage() {
   
   const [activeTab, setActiveTab] = useState("dashboard");
   const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]); // State mới cho đơn hàng
+  const [reviews, setReviews] = useState([]); // State mới cho đánh giá
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   
@@ -30,6 +33,10 @@ function AdminPage() {
   useEffect(() => {
     if (activeTab === "products") {
       fetchProducts();
+    } else if (activeTab === "orders") {
+      fetchAllOrders();
+    } else if (activeTab === "reviews") {
+      fetchAllReviews();
     }
   }, [activeTab]);
 
@@ -45,6 +52,58 @@ function AdminPage() {
     }
   };
 
+  // Hàm tải tất cả đơn hàng cho Admin
+  const fetchAllOrders = async () => {
+    setLoading(true);
+    try {
+      // Backend cần có route GET /api/orders được protect("admin")
+      const { data } = await axiosClient.get("/orders");
+      setOrders(data);
+    } catch (error) {
+      console.error("Lỗi tải danh sách đơn hàng:", error);
+      alert("Không thể tải dữ liệu đơn hàng. Bạn có quyền Admin không?");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hàm tải tất cả đánh giá cho Admin
+  const fetchAllReviews = async () => {
+    setLoading(true);
+    try {
+      // Backend cần có route GET /api/reviews
+      const { data } = await axiosClient.get("/reviews");
+      setReviews(data);
+    } catch (error) {
+      console.error("Lỗi tải danh sách đánh giá:", error);
+      alert("Không thể tải dữ liệu đánh giá.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Hàm xử lý khi Admin thay đổi trạng thái đơn hàng
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      await axiosClient.put(`/orders/${orderId}/status`, { status: newStatus });
+      alert('Cập nhật trạng thái đơn hàng thành công!');
+      fetchAllOrders(); // Tải lại danh sách để thấy thay đổi
+    } catch (error) {
+      alert('Lỗi khi cập nhật trạng thái.');
+    }
+  }
+
+  // Hàm xóa một đánh giá
+  const handleDeleteReview = async (productId, reviewId) => {
+    if (window.confirm("Bạn có chắc muốn xóa đánh giá này không?")) {
+      try {
+        await axiosClient.delete(`/reviews/${productId}/${reviewId}`);
+        alert("Đã xóa đánh giá thành công.");
+        fetchAllReviews(); // Tải lại danh sách
+      } catch (error) {
+        alert("Lỗi khi xóa đánh giá.");
+      }
+    }
+  };
   // --- LOGIC XỬ LÝ BIẾN THỂ (VARIANTS) TRÊN FORM ---
   
   // Hàm thêm một dòng biến thể trống vào form
@@ -163,6 +222,12 @@ function AdminPage() {
             </li>
             <li>
               <button onClick={() => setActiveTab("products")} style={{ width: "100%", padding: "10px", textAlign: "left", background: activeTab === "products" ? "#ff6600" : "#f5f5f5", color: activeTab === "products" ? "#fff" : "#333", border: "none", borderRadius: "5px", cursor: "pointer" }}>📱 Quản lý Sản phẩm</button>
+            </li>
+            <li>
+              <button onClick={() => setActiveTab("orders")} style={{ width: "100%", padding: "10px", textAlign: "left", background: activeTab === "orders" ? "#ff6600" : "#f5f5f5", color: activeTab === "orders" ? "#fff" : "#333", border: "none", borderRadius: "5px", cursor: "pointer" }}>📦 Quản lý Đơn hàng</button>
+            </li>
+            <li>
+              <button onClick={() => setActiveTab("reviews")} style={{ width: "100%", padding: "10px", textAlign: "left", background: activeTab === "reviews" ? "#ff6600" : "#f5f5f5", color: activeTab === "reviews" ? "#fff" : "#333", border: "none", borderRadius: "5px", cursor: "pointer" }}>⭐ Quản lý Đánh giá</button>
             </li>
           </ul>
         </div>
@@ -291,6 +356,111 @@ function AdminPage() {
             </div>
           )}
 
+          {/* GIAO DIỆN TAB QUẢN LÝ ĐƠN HÀNG */}
+          {activeTab === "orders" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+                <h2>Danh Sách Đơn Hàng Toàn Hệ Thống</h2>
+              </div>
+
+              {loading ? <p>Đang tải dữ liệu đơn hàng...</p> : (
+                <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+                  <thead>
+                    <tr style={{ background: "#ff6600", color: "#fff" }}>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Mã ĐH</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Khách hàng</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Ngày đặt</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Tổng tiền</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Thanh toán</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Trạng thái GH</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.length === 0 ? (
+                      <tr><td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>Chưa có đơn hàng nào trong hệ thống.</td></tr>
+                    ) : (
+                      orders.map(order => (
+                        <tr key={order._id} style={{ borderBottom: "1px solid #ddd", textAlign: "center" }}>
+                          <td style={{ padding: "10px", fontFamily: "monospace" }}>#{order._id.slice(-6).toUpperCase()}</td>
+                          <td style={{ padding: "10px", fontWeight: "50px" }}>{order.user?.name || "Khách vãng lai"}</td>
+                          <td style={{ padding: "10px" }}>{new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
+                          <td style={{ padding: "10px", color: "red", fontWeight: "bold" }}>{order.totalPrice?.toLocaleString()} đ</td>
+                          <td style={{ padding: "10px" }}>
+                            <span style={{ background: order.isPaid ? "#28a745" : "#ffc107", color: order.isPaid ? "#fff" : "#000", padding: "3px 8px", borderRadius: "10px", fontSize: "13px" }}>
+                              {order.isPaid ? "Đã thanh toán" : "Chờ thanh toán"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "10px" }}>
+                            <select 
+                              value={order.status} 
+                              onChange={(e) => handleStatusChange(order._id, e.target.value)}
+                              style={{ padding: "5px", borderRadius: "5px", border: "1px solid #ccc", background: "#f8f9fa" }}
+                            >
+                              <option value="Chờ thanh toán">Chờ thanh toán</option>
+                              <option value="Đang xử lý">Đang xử lý</option>
+                              <option value="Đang giao hàng">Đang giao hàng</option>
+                              <option value="Hoàn thành">Hoàn thành</option>
+                              <option value="Đã hủy">Đã hủy</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {/* GIAO DIỆN TAB QUẢN LÝ ĐÁNH GIÁ */}
+          {activeTab === "reviews" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+                <h2>Quản lý Đánh giá & Bình luận</h2>
+              </div>
+
+              {loading ? <p>Đang tải dữ liệu đánh giá...</p> : (
+                <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+                  <thead>
+                    <tr style={{ background: "#ff6600", color: "#fff" }}>
+                      <th style={{ padding: "12px", border: "1px solid #ddd", width: "20%" }}>Sản phẩm</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd", width: "15%" }}>Người đánh giá</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd", width: "10%" }}>Điểm</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd" }}>Nội dung bình luận</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd", width: "10%" }}>Ngày</th>
+                      <th style={{ padding: "12px", border: "1px solid #ddd", width: "10%" }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviews.length === 0 ? (
+                      <tr><td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>Chưa có đánh giá nào trong hệ thống.</td></tr>
+                    ) : (
+                      reviews.map(review => (
+                        <tr key={review._id} style={{ borderBottom: "1px solid #ddd", textAlign: "left" }}>
+                          <td style={{ padding: "10px", fontWeight: "500" }}>
+                            <Link to={`/san-pham/${review.productId}`}>{review.productName}</Link>
+                          </td>
+                          <td style={{ padding: "10px" }}>{review.userName}</td>
+                          <td style={{ padding: "10px", textAlign: "center" }}>
+                            <StarRating rating={review.rating} />
+                          </td>
+                          <td style={{ padding: "10px", fontSize: "14px", color: "#555" }}>{review.comment}</td>
+                          <td style={{ padding: "10px", textAlign: "center", fontSize: "13px" }}>
+                            {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                          </td>
+                          <td style={{ padding: "10px", textAlign: "center" }}>
+                            <button onClick={() => handleDeleteReview(review.productId, review._id)} style={{ background: "#dc3545", color: "white", border: "none", padding: "5px 12px", borderRadius: "4px", cursor: "pointer" }}>
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </PageLayout>

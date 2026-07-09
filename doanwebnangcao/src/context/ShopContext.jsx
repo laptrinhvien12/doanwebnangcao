@@ -52,6 +52,24 @@ export function ShopProvider({ children }) {
     localStorage.setItem("cartItems", JSON.stringify(cart));
   }, [cart]);
 
+  // Tự động tải lịch sử đơn hàng của người dùng khi họ đăng nhập
+  useEffect(() => {
+    const fetchMyOrders = async () => {
+      // Chỉ gọi API khi có thông tin user (đã đăng nhập)
+      if (user) {
+        try {
+          const { data } = await axiosClient.get("/orders/myorders");
+          setOrders(data); // Cập nhật state Lịch sử đơn hàng
+        } catch (error) {
+          console.error("Lỗi tải lịch sử đơn hàng:", error);
+        }
+      } else {
+        setOrders([]); // Xóa lịch sử đơn hàng khi người dùng logout
+      }
+    };
+    fetchMyOrders();
+  }, [user]); // Chạy lại mỗi khi state 'user' thay đổi
+
   const addToCart = (product, qty = 1) => {
     setCart((prev) => {
       // 1. CHUẨN HÓA DỮ LIỆU: Bắt trúng ID, Giá và Phiên bản dù đến từ nguồn nào
@@ -137,6 +155,15 @@ export function ShopProvider({ children }) {
     try {
       await axiosClient.put(`/orders/${orderId}/pay`);
       setCart([]); // Thanh toán xong mới xóa sạch giỏ hàng
+
+      // Tải lại danh sách đơn hàng để cập nhật giao diện trang Tài khoản
+      try {
+        const { data } = await axiosClient.get("/orders/myorders");
+        setOrders(data);
+      } catch (fetchError) {
+        console.error("Lỗi tải lại lịch sử đơn hàng:", fetchError);
+      }
+
       return true;
     } catch (error) {
       console.error("Lỗi xác nhận thanh toán:", error);

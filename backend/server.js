@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 // Cấu hình biến môi trường từ file .env
 dotenv.config();
 
@@ -21,7 +22,7 @@ app.use(express.json()); // Bắt buộc phải có để server hiểu dữ li�
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
-
+app.use('/api/reviews', reviewRoutes);
 // Tuyến đường mặc định kiểm tra tình trạng Server
 app.get('/', (req, res) => {
     res.send('Hệ thống API Authentication đang hoạt động...');
